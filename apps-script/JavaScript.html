@@ -1,0 +1,213 @@
+<script>
+(function () {
+  const loginView = document.getElementById('login-view');
+  const loginForm = document.getElementById('login-form');
+  const loginStatus = document.getElementById('login-status');
+  const loginButton = document.getElementById('login-button');
+  const navigation = document.getElementById('navigation');
+  const browseView = document.getElementById('browse-view');
+  const submitView = document.getElementById('submit-view');
+  const familyList = document.getElementById('family-list');
+  const familyStatus = document.getElementById('family-status');
+  const wishlistForm = document.getElementById('wishlist-form');
+  const formStatus = document.getElementById('form-status');
+  const submitButton = document.getElementById('submit-button');
+  let sessionToken = '';
+
+  document.querySelectorAll('[data-view]').forEach(function (button) {
+    button.addEventListener('click', function () {
+      const showSubmit = button.dataset.view === 'submit';
+      browseView.classList.toggle('hidden', showSubmit);
+      submitView.classList.toggle('hidden', !showSubmit);
+    });
+  });
+
+  loginForm.addEventListener('submit', function (event) {
+    event.preventDefault();
+    loginStatus.textContent = '';
+    loginStatus.className = 'status';
+    if (!loginForm.reportValidity()) return;
+
+    const username = loginForm.elements.username.value;
+    let password = loginForm.elements.password.value;
+    if (Array.from(password).length > 256) {
+      loginStatus.textContent = 'Password must be no more than 256 characters.';
+      loginStatus.className = 'status error';
+      password = '';
+      loginForm.elements.password.value = '';
+      return;
+    }
+    loginButton.disabled = true;
+    loginButton.textContent = 'Preparing sign-in…';
+
+    google.script.run.withSuccessHandler(function (params) {
+      loginButton.textContent = 'Securing sign-in…';
+      deriveClientVerifier(password, params.saltHex, params.iterations)
+        .then(function (derivedKeyHex) {
+          password = '';
+          loginForm.elements.password.value = '';
+          solveProof(params.challenge).then(function (counter) {
+            google.script.run.withSuccessHandler(function (result) {
+              sessionToken = result.sessionToken;
+              loginForm.reset();
+              loginButton.disabled = false;
+              loginButton.textContent = 'Log in';
+              loginView.classList.add('hidden');
+              navigation.classList.remove('hidden');
+              browseView.classList.remove('hidden');
+              loadFamily();
+            }).withFailureHandler(showLoginError)
+              .login(username, derivedKeyHex, params.challenge, counter);
+          }).catch(showLoginError);
+        })
+        .catch(function () {
+          password = '';
+          loginForm.elements.password.value = '';
+          showLoginError();
+        });
+    }).withFailureHandler(showLoginError).beginLogin();
+
+    function showLoginError() {
+      password = '';
+      loginForm.elements.password.value = '';
+      sessionToken = '';
+      loginButton.disabled = false;
+      loginButton.textContent = 'Log in';
+      loginStatus.className = 'status error';
+      loginStatus.textContent = 'Login failed. Check your details or try again later.';
+    }
+  });
+
+  async function deriveClientVerifier(password, saltHex, iterations) {
+    if (!window.crypto || !window.crypto.subtle) throw new Error('Web Crypto unavailable');
+    const passwordBytes = new TextEncoder().encode(password);
+    const salt = hexToBytes(saltHex);
+    const key = await window.crypto.subtle.importKey('raw', passwordBytes, 'PBKDF2', false, ['deriveBits']);
+    const bits = await window.crypto.subtle.deriveBits({ name: 'PBKDF2', salt: salt, iterations: iterations, hash: 'SHA-256' }, key, 256);
+    return bytesToHex(new Uint8Array(bits));
+  }
+
+  async function solveProof(challenge) {
+    const encoder = new TextEncoder();
+    for (let counter = 0; counter <= 10000000; counter++) {
+      const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', encoder.encode(challenge + ':' + counter)));
+      if (digest[0] === 0 && (digest[1] & 192) === 0) return counter;
+    }
+    throw new Error('Could not complete sign-in.');
+  }
+
+  function hexToBytes(hex) {
+    const result = new Uint8Array(hex.length / 2);
+    for (let i = 0; i < result.length; i++) result[i] = parseInt(hex.substr(i * 2, 2), 16);
+    return result;
+  }
+  function bytesToHex(bytes) {
+    return Array.from(bytes).map(function (value) { return value.toString(16).padStart(2, '0'); }).join('');
+  }
+
+  document.getElementById('logout-button').addEventListener('click', function () {
+    const token = sessionToken;
+    sessionToken = '';
+    google.script.run.logout(token);
+    showLogin();
+  });
+
+  function showLogin() {
+    loginView.classList.remove('hidden');
+    navigation.classList.add('hidden');
+    browseView.classList.add('hidden');
+    submitView.classList.add('hidden');
+    loginForm.elements.password.value = '';
+  }
+
+  function loadFamily() {
+    familyStatus.textContent = 'Loading wishes…';
+    google.script.run.withSuccessHandler(renderFamily).withFailureHandler(function () {
+      sessionToken = '';
+      showLogin();
+      loginStatus.className = 'status error';
+      loginStatus.textContent = 'Your session expired. Please sign in again.';
+    }).getFamilyData(sessionToken);
+  }
+
+  function renderFamily(people) {
+    familyList.replaceChildren();
+    familyStatus.textContent = '';
+    if (!people || people.length === 0) {
+      familyStatus.textContent = 'No wishes have been added yet.';
+      return;
+    }
+    people.forEach(function (person) {
+      const card = document.createElement('article');
+      card.className = 'person-card';
+      const toggle = document.createElement('button');
+      toggle.type = 'button';
+      toggle.className = 'person-toggle';
+      const name = document.createElement('span');
+      const avatar = document.createElement('span');
+      avatar.className = 'avatar';
+      avatar.textContent = (person.name || '?').charAt(0).toUpperCase();
+      name.append(avatar, document.createTextNode(person.name));
+      const count = document.createElement('span');
+      count.textContent = person.items.length + (person.items.length === 1 ? ' wish' : ' wishes');
+      toggle.append(name, count);
+      toggle.addEventListener('click', function () { card.classList.toggle('open'); });
+      const list = document.createElement('div');
+      list.className = 'wish-items';
+      person.items.forEach(function (item) {
+        const wish = document.createElement('section');
+        wish.className = 'wish-card';
+        const title = document.createElement('h3');
+        title.textContent = item.name;
+        wish.appendChild(title);
+        [item.type, item.size && 'Size: ' + item.size, item.colorPattern, item.preferredPrice && 'Around $' + item.preferredPrice]
+          .filter(Boolean).forEach(function (text) {
+            const tag = document.createElement('span');
+            tag.className = 'tag';
+            tag.textContent = text;
+            wish.appendChild(tag);
+          });
+        if (item.description) {
+          const description = document.createElement('p');
+          description.textContent = item.description;
+          wish.appendChild(description);
+        }
+        if (item.productUrl) {
+          const link = document.createElement('a');
+          link.className = 'product-link';
+          link.href = item.productUrl;
+          link.target = '_blank';
+          link.rel = 'noopener noreferrer';
+          link.textContent = 'View product';
+          wish.appendChild(link);
+        }
+        list.appendChild(wish);
+      });
+      card.append(toggle, list);
+      familyList.appendChild(card);
+    });
+  }
+
+  wishlistForm.addEventListener('submit', function (event) {
+    event.preventDefault();
+    formStatus.textContent = '';
+    formStatus.className = 'status';
+    if (!wishlistForm.reportValidity()) return;
+    const values = Object.fromEntries(new FormData(wishlistForm).entries());
+    submitButton.disabled = true;
+    submitButton.textContent = 'Saving…';
+    google.script.run.withSuccessHandler(function (result) {
+      formStatus.textContent = result.message;
+      wishlistForm.reset();
+      submitButton.disabled = false;
+      submitButton.textContent = 'Save wish';
+      loadFamily();
+    }).withFailureHandler(function (error) {
+      submitButton.disabled = false;
+      submitButton.textContent = 'Save wish';
+      formStatus.className = 'status error';
+      formStatus.textContent = (error && error.message) || 'Could not save the wish. Your session may have expired.';
+    }).submitWishlistEntry(values, sessionToken);
+  });
+})();
+</script>
