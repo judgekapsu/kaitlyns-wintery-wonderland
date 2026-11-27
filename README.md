@@ -1,6 +1,6 @@
 # Kaitlyn's Wintery Wonderland
 
-A family wishlist web app using Google Apps Script and a private Google Sheet. This version supports shared login, wishlist submissions, and browsing only. Price tracking, email alerts, and purchase actions are not implemented.
+A family wishlist web app using Google Apps Script and a private Google Sheet. It supports shared login, wishlist submissions and browsing, plus opt-in daily price checks and email alerts for supported product pages. Purchase actions are not implemented.
 
 ## Files
 
@@ -57,7 +57,7 @@ node .\\tools\\hash-password.cjs --self-test
 node .\\tools\\hash-password.cjs --test-vector
 ```
 
-The first checks the RFC PBKDF2 vector, Node WebCrypto versus `pbkdf2Sync` at 600,000 iterations, and wrong-password derivation. `--test-vector` emits fixed public test data and its derived key for manual client/server comparison; it is not a real credential. In Apps Script, use **Wishlist admin → Run compatibility checks** to test the server's SHA-256 verifier comparison and URL cases. That server test uses a deterministic verifier fixture; it does not redo PBKDF2 or access your password.
+The first checks the RFC PBKDF2 vector, Node WebCrypto versus `pbkdf2Sync` at 600,000 iterations, and wrong-password derivation. `--test-vector` emits fixed public test data and its derived key for manual client/server comparison; it is not a real credential. In Apps Script, use **Wishlist admin → Run compatibility checks** to test the server's SHA-256 verifier comparison, URL validation, product metadata extraction, price-change detection, and subscriber counts. That server test uses deterministic fixtures; it does not redo PBKDF2 or access your password.
 
 ## Authentication limitations
 
@@ -67,4 +67,14 @@ Sessions use random tokens; only token hashes are cached server-side. The token 
 
 This is one shared login, not individual identity verification. Email addresses are not verified, and anyone with shared credentials can submit under another person's name/email. Keep the spreadsheet private and avoid sensitive information.
 
-Deploy as a web app executing as the owner. Choose the most restrictive audience that works for your family. Complete Google authorization yourself; this repository setup does not access your Google account or deploy anything.
+## Price checks and email subscriptions
+
+After updating the Apps Script files, the owner should run **Wishlist admin → Initialize database and connect existing items** again. This also installs one daily trigger for the 8 AM hour in the script's time zone (`America/Chicago`). The owner may need to authorize the scheduled script to fetch product pages and send email. Checks run only for product wishlist items with a valid URL and at least one active subscription.
+
+Price extraction is best-effort: the checker reads standard JSON-LD product/offer data first, then common price metadata. It cannot reliably read every retailer, especially pages that require JavaScript, a login, or anti-bot checks. Failed or unsupported checks are shown on the wishlist; they do not generate price alerts. The first successful check records a baseline, and subscribers are emailed only after a later check finds a different price or currency. There may be a delay of up to a day, and email delivery remains subject to Apps Script quotas.
+
+Product links and price checks are restricted to approved HTTPS retailer domains: `amazon.com`, `sephora.com`, `ulta.com`, `kiarasky.com`, `apresnail.com`, `macys.com`, `dillards.com`, `basspro.com`, `academy.com`, and `coach.com`. Subdomains are included, but redirects to any other domain are rejected. The owner can add more approved root domains in Script Property `PRICE_CHECK_ALLOWED_DOMAINS`, separated by commas and written without a scheme or path. Existing wishlist URLs outside the approved list are hidden and are not checked until approved. The allowlist confirms the destination domain only: marketplace sellers or product listings may still be misleading, so verify the seller and listing before purchasing.
+
+To subscribe, enter an email address under an approved product in **Family wishlists**. The app shows only the active subscriber count, not email addresses. Each price alert includes a one-click unsubscribe link. Email addresses are not verified, so enter an address you control. The shared family login is not individual identity verification.
+
+To test sign-in, open the **deployed Apps Script web app URL**. Opening `Index.html` directly from your computer only previews the page; it does not provide Google's `google.script.run` server connection, so login and wishlist actions cannot work there. After setting the Script Properties and pushing the files, deploy as a web app executing as the owner. Choose the most restrictive audience that works for your family, then use the web app URL shown by Apps Script. For later code changes, push and update the deployment to a new version. Complete Google authorization yourself; this repository setup does not access your Google account or deploy anything.

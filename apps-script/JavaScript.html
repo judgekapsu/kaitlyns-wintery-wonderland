@@ -27,6 +27,11 @@
     loginStatus.textContent = '';
     loginStatus.className = 'status';
     if (!loginForm.reportValidity()) return;
+    if (!hasAppsScriptRuntime()) {
+      loginStatus.className = 'status error';
+      loginStatus.textContent = 'This page needs Google Apps Script to sign in. Open the deployed web app URL instead of the local HTML file.';
+      return;
+    }
 
     const username = loginForm.elements.username.value;
     let password = loginForm.elements.password.value;
@@ -51,7 +56,7 @@
               sessionToken = result.sessionToken;
               loginForm.reset();
               loginButton.disabled = false;
-              loginButton.textContent = 'Log in';
+              loginButton.textContent = 'Enter the wonderland →';
               loginView.classList.add('hidden');
               navigation.classList.remove('hidden');
               browseView.classList.remove('hidden');
@@ -72,7 +77,7 @@
       loginForm.elements.password.value = '';
       sessionToken = '';
       loginButton.disabled = false;
-      loginButton.textContent = 'Log in';
+      loginButton.textContent = 'Enter the wonderland →';
       loginStatus.className = 'status error';
       loginStatus.textContent = 'Login failed. Check your details or try again later.';
     }
@@ -85,6 +90,10 @@
     const key = await window.crypto.subtle.importKey('raw', passwordBytes, 'PBKDF2', false, ['deriveBits']);
     const bits = await window.crypto.subtle.deriveBits({ name: 'PBKDF2', salt: salt, iterations: iterations, hash: 'SHA-256' }, key, 256);
     return bytesToHex(new Uint8Array(bits));
+  }
+
+  function hasAppsScriptRuntime() {
+    return typeof google !== 'undefined' && google.script && google.script.run;
   }
 
   async function solveProof(challenge) {
@@ -121,12 +130,19 @@
   }
 
   function loadFamily() {
+    familyStatus.className = 'status';
     familyStatus.textContent = 'Loading wishes…';
-    google.script.run.withSuccessHandler(renderFamily).withFailureHandler(function () {
-      sessionToken = '';
-      showLogin();
-      loginStatus.className = 'status error';
-      loginStatus.textContent = 'Your session expired. Please sign in again.';
+    google.script.run.withSuccessHandler(renderFamily).withFailureHandler(function (error) {
+      const message = (error && error.message) || 'Could not load the wishlist.';
+      if (message.toLowerCase().indexOf('session expired') !== -1) {
+        sessionToken = '';
+        showLogin();
+        loginStatus.className = 'status error';
+        loginStatus.textContent = 'Your session expired. Please sign in again.';
+        return;
+      }
+      familyStatus.className = 'status error';
+      familyStatus.textContent = message;
     }).getFamilyData(sessionToken);
   }
 
@@ -180,6 +196,69 @@
           link.rel = 'noopener noreferrer';
           link.textContent = 'View product';
           wish.appendChild(link);
+        }
+        if (item.unapprovedProductUrl) {
+          const linkNotice = document.createElement('p');
+          linkNotice.className = 'price-summary';
+          linkNotice.textContent = 'Product link hidden because this retailer is not approved.';
+          wish.appendChild(linkNotice);
+        }
+        if (item.type === 'Product' && item.productUrl && item.itemId) {
+          const priceTools = document.createElement('div');
+          priceTools.className = 'price-tools';
+          const priceSummary = document.createElement('p');
+          priceSummary.className = 'price-summary';
+          if (item.currentPrice) {
+            priceSummary.textContent = (item.priceCheckStatus.indexOf('Check failed:') === 0 ? 'Last known price: ' : 'Last checked price: ') +
+              (item.currency ? item.currency + ' ' : '') + Number(item.currentPrice).toFixed(2);
+            if (item.lastChecked) priceSummary.textContent += ' · ' + item.lastChecked;
+            if (item.priceCheckStatus.indexOf('Check failed:') === 0) {
+              priceSummary.textContent += ' · Latest check failed: ' + item.priceCheckStatus.substring('Check failed:'.length).trim();
+            }
+          } else if (item.priceCheckStatus.indexOf('Check failed:') === 0) {
+            priceSummary.textContent = 'Price check unavailable: ' + item.priceCheckStatus.substring('Check failed:'.length).trim();
+          } else {
+            priceSummary.textContent = 'No price check yet.';
+          }
+          const subscriberCount = document.createElement('p');
+          subscriberCount.className = 'subscriber-count';
+          subscriberCount.textContent = item.subscriberCount + (item.subscriberCount === 1 ? ' subscriber' : ' subscribers');
+          const subscriptionForm = document.createElement('form');
+          subscriptionForm.className = 'price-subscribe-form';
+          const email = document.createElement('input');
+          email.type = 'email';
+          email.maxLength = 254;
+          email.required = true;
+          email.autocomplete = 'email';
+          email.placeholder = 'Email for price alerts';
+          email.setAttribute('aria-label', 'Email for price alerts on ' + item.name);
+          const subscribeButton = document.createElement('button');
+          subscribeButton.type = 'submit';
+          subscribeButton.textContent = 'Subscribe';
+          const subscriptionStatus = document.createElement('p');
+          subscriptionStatus.className = 'status';
+          subscriptionStatus.setAttribute('role', 'status');
+          subscriptionForm.append(email, subscribeButton);
+          subscriptionForm.addEventListener('submit', function (event) {
+            event.preventDefault();
+            if (!subscriptionForm.reportValidity()) return;
+            subscribeButton.disabled = true;
+            subscriptionStatus.className = 'status';
+            subscriptionStatus.textContent = 'Saving subscription…';
+            google.script.run.withSuccessHandler(function (result) {
+              item.subscriberCount = result.subscriberCount;
+              subscriberCount.textContent = item.subscriberCount + (item.subscriberCount === 1 ? ' subscriber' : ' subscribers');
+              subscriptionStatus.textContent = result.message;
+              email.value = '';
+              subscribeButton.disabled = false;
+            }).withFailureHandler(function (error) {
+              subscribeButton.disabled = false;
+              subscriptionStatus.className = 'status error';
+              subscriptionStatus.textContent = (error && error.message) || 'Could not subscribe to price alerts.';
+            }).subscribeToPriceAlerts(item.itemId, email.value, sessionToken);
+          });
+          priceTools.append(priceSummary, subscriberCount, subscriptionForm, subscriptionStatus);
+          wish.appendChild(priceTools);
         }
         list.appendChild(wish);
       });

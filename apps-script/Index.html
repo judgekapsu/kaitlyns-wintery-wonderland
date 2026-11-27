@@ -16,21 +16,21 @@
     <section id="login-view" class="panel login-panel">
       <p class="section-kicker">WELCOME, FAMILY</p><h2>Sign in to your<br>winter wonderland</h2><p>Use the shared family details to browse wishlists or add a wish.</p>
       <form id="login-form">
-        <label>Username<input name="username" autocomplete="username" maxlength="128" placeholder="Family username" required></label>
-        <label>Password<input name="password" type="password" autocomplete="current-password" maxlength="256" placeholder="Your password" required></label>
+        <label>Username<input name="username" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="128" placeholder="Family username" required></label>
+        <label>Password<input name="password" type="password" autocomplete="current-password" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="256" placeholder="Your password" required></label>
         <button class="button" id="login-button" type="submit">Enter the wonderland <span aria-hidden="true">→</span></button>
       </form>
       <p id="login-status" class="status" role="status" aria-live="polite"></p>
     </section></div>
-    <section id="browse-view" class="panel hidden"><h2>Family wishlists</h2><p>Choose a name to browse available wishes.</p><p id="family-status" class="status" role="status">Loading wishes…</p><div id="family-list" class="family-list"></div></section>
+    <section id="browse-view" class="panel hidden"><h2>Family wishlists</h2><p>Choose a name to browse available wishes. Product links and daily price checks are limited to approved retailers. Subscribe to a product to get an email when its checked price changes; stores must expose standard product metadata.</p><p id="family-status" class="status" role="status">Loading wishes…</p><div id="family-list" class="family-list"></div></section>
     <section id="submit-view" class="panel hidden">
-      <h2>Add a wishlist item</h2><p>Add one wish at a time. Email addresses are not verified.</p>
+      <h2>Add a wishlist item</h2><p>Add one wish at a time. Product links are limited to approved HTTPS retailers. Email addresses are not verified.</p>
       <form id="wishlist-form"><div class="form-grid">
         <label>Name<input name="name" maxlength="100" required></label>
         <label>Email<input name="email" type="email" maxlength="254" required></label>
         <label class="wide">Item name<input name="itemName" maxlength="160" required></label>
         <label>Item type<select name="itemType"><option>Product</option><option>General Idea</option></select></label>
-        <label>Product URL (optional)<input name="productUrl" type="url" maxlength="2048"></label>
+        <label>Product URL (approved HTTPS retailers only, optional)<input name="productUrl" type="url" maxlength="2048"></label>
         <label class="wide">Description (optional)<textarea name="description" maxlength="2000"></textarea></label>
         <label>Size (optional)<input name="size" maxlength="100"></label>
         <label>Color or pattern (optional)<input name="colorPattern" maxlength="150"></label>
@@ -39,7 +39,7 @@
       <p id="form-status" class="status" role="status" aria-live="polite"></p>
     </section>
   </main>
-  <footer><span aria-hidden="true">✳</span> Made for the moments that make winter feel warm · Wishlist basics only</footer>
+  <footer><span aria-hidden="true">✳</span> Made for the moments that make winter feel warm · Wishlists and price alerts</footer>
   <?!= include_('JavaScript'); ?>
 </body>
 </html>
