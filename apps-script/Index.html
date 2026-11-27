@@ -11,16 +11,17 @@
     </nav>
   </header>
   <main>
-    <section class="hero"><p class="eyebrow">A little winter magic</p><h1>Thoughtful wishes,<br><span>all in one place.</span></h1><p>Browse family wishlists or add an idea of your own.</p></section>
-    <section id="login-view" class="panel">
-      <h2>Family login</h2><p>Enter the shared family sign-in details.</p>
+    <div class="welcome-layout">
+    <section class="hero"><p class="eyebrow">A little winter magic</p><h1>Thoughtful wishes,<br><span>all in one place.</span></h1><p>One cozy place to collect ideas, share inspiration, and make the season special.</p><div class="hero-note"><span aria-hidden="true">✦</span> A little something for everyone</div></section>
+    <section id="login-view" class="panel login-panel">
+      <p class="section-kicker">WELCOME, FAMILY</p><h2>Sign in to your<br>winter wonderland</h2><p>Use the shared family details to browse wishlists or add a wish.</p>
       <form id="login-form">
-        <label>Username<input name="username" autocomplete="username" maxlength="128" required></label>
-        <label>Password<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label>
-        <button class="button" id="login-button" type="submit">Log in</button>
+        <label>Username<input name="username" autocomplete="username" maxlength="128" placeholder="Family username" required></label>
+        <label>Password<input name="password" type="password" autocomplete="current-password" maxlength="256" placeholder="Your password" required></label>
+        <button class="button" id="login-button" type="submit">Enter the wonderland <span aria-hidden="true">→</span></button>
       </form>
       <p id="login-status" class="status" role="status" aria-live="polite"></p>
-    </section>
+    </section></div>
     <section id="browse-view" class="panel hidden"><h2>Family wishlists</h2><p>Choose a name to browse available wishes.</p><p id="family-status" class="status" role="status">Loading wishes…</p><div id="family-list" class="family-list"></div></section>
     <section id="submit-view" class="panel hidden">
       <h2>Add a wishlist item</h2><p>Add one wish at a time. Email addresses are not verified.</p>
@@ -38,7 +39,7 @@
       <p id="form-status" class="status" role="status" aria-live="polite"></p>
     </section>
   </main>
-  <footer>Wishlist basics only. Price tracking and email alerts are not available.</footer>
+  <footer><span aria-hidden="true">✳</span> Made for the moments that make winter feel warm · Wishlist basics only</footer>
   <?!= include_('JavaScript'); ?>
 </body>
 </html>

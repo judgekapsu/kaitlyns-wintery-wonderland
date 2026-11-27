@@ -27,6 +27,8 @@ Generate the verifier locally in a VS Code terminal with `node .\\tools\\hash-pa
 
 The record format is `pbkdf2-sha256-client$600000$<16-byte salt as 32 hex chars>$<SHA-256 of derived key as 64 hex chars>`. The 600,000 PBKDF2-HMAC-SHA-256 iterations happen in the browser using Web Crypto. The browser sends the derived key—not the plaintext password—to Apps Script. Apps Script hashes that key once and compares the verifier cheaply. The salt is public and included in the login response. Do not change the iteration count in only one component.
 
+For development, set a temporary shared username and password now so you can test the actual login and wishlist flow. The temporary password uses the same secure setup as the eventual one; it is not stored in the source. To change it later, run the helper again with the new password and replace `FAMILY_PASSWORD_HASH` in Script Properties. You can also change `FAMILY_USERNAME` there. Anyone with the temporary credentials can access the deployed app, so keep the web app restricted to the intended audience while developing.
+
 ## Local source and clasp
 
 From the repository root in a Windows 11 VS Code terminal:
